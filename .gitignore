@@ -1,0 +1,17 @@
+# Passwords and keys, see firmware/robot_face/secrets.example.h
+secrets.h
+
+# Build output
+build/
+*.bin
+*.elf
+*.map
+
+# Editors and OS
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Personal Claude Code settings (CLAUDE.md is shared on purpose)
+.claude/settings.local.json

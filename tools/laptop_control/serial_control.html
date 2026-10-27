@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RoboFace USB Control</title>
+<!--
+  Control the robot from a laptop over the USB cable.
+  Open this file in Chrome or Edge (they support Web Serial), click Connect and pick the XIAO's port.
+  Close the Arduino IDE Serial Monitor first: only one program can use the port at a time.
+-->
+<style>
+  :root {
+    --bg: #f5f5f7; --panel: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #d9d9de;
+    --btn: #e9e9ee; --accent: #0a7cff; --accent-text: #ffffff; --danger: #d23b3b; --log: #fbfbfd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111113; --panel: #1c1c1f; --text: #ececf0; --muted: #9a9aa3; --line: #2e2e33;
+      --btn: #2a2a2f; --accent: #2f8fff; --accent-text: #ffffff; --danger: #c43c3c; --log: #151517;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 16px;
+           border-bottom: 1px solid var(--line); background: var(--panel); }
+  h1 { font-size: 18px; margin: 0; flex: 1; }
+  #state { color: var(--muted); font-size: 14px; }
+  #state.ok { color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 16px;
+         padding: 16px; max-width: 1100px; margin: 0 auto; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 4px 0 10px; }
+  h2:not(:first-child) { margin-top: 18px; }
+  button { font: inherit; border: 0; border-radius: 10px; background: var(--btn); color: var(--text);
+           padding: 10px 0; cursor: pointer; touch-action: none; user-select: none; }
+  button:active, button.on { background: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .45; cursor: default; }
+  #connect { padding: 8px 16px; background: var(--accent); color: var(--accent-text); }
+  .pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; justify-content: center; }
+  .pad button { font-size: 20px; padding: 14px 0; }
+  .stop { background: var(--danger); color: #fff; }
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .row input[type=range] { flex: 1; }
+  .keys { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-bottom-width: 2px;
+        border-radius: 5px; padding: 0 5px; background: var(--log); }
+  #log { height: 420px; overflow-y: auto; white-space: pre-wrap; font: 13px/1.45 ui-monospace, Consolas, monospace;
+         background: var(--log); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 0; }
+  form { display: flex; gap: 8px; margin-top: 10px; }
+  #line { flex: 1; font: 14px ui-monospace, Consolas, monospace; padding: 9px 10px; border-radius: 10px;
+          border: 1px solid var(--line); background: var(--log); color: var(--text); }
+  form button { padding: 9px 16px; }
+  .sent { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>RoboFace USB Control</h1>
+  <span id="state">Not connected</span>
+  <button id="connect">Connect</button>
+</header>
+<main>
+  <section>
+    <h2>Drive</h2>
+    <div class="pad">
+      <span></span><button data-k="w">&#9650;</button><span></span>
+      <button data-k="a">&#9664;</button><button class="stop" id="stop">&#9632;</button><button data-k="d">&#9654;</button>
+      <span></span><button data-k="s">&#9660;</button><span></span>
+    </div>
+    <div class="row" style="margin-top:12px">Speed
+      <input type="range" id="speed" min="30" max="100" step="5" value="70"><span id="speedVal">70%</span>
+    </div>
+
+    <h2>Behaviors</h2>
+    <div class="grid2" id="behaviors"></div>
+
+    <h2>Mood</h2>
+    <div class="grid4">
+      <button data-c="mood normal">Normal</button><button data-c="mood happy">Happy</button>
+      <button data-c="mood angry">Angry</button><button data-c="mood tired">Tired</button>
+    </div>
+
+    <h2>Sleep</h2>
+    <div class="grid2">
+      <button data-c="sleep">Sleep</button><button data-c="wake">Wake up</button>
+      <button data-c="auto on">Auto on</button><button data-c="auto off">Auto off</button>
+    </div>
+
+    <div class="keys">
+      Keyboard: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to drive (hold),
+      <kbd>Space</kbd> stop, <kbd>1</kbd>–<kbd>8</kbd> behaviors, <kbd>Z</kbd> sleep/wake, <kbd>M</kbd> auto mode
+    </div>
+  </section>
+
+  <section>
+    <h2>Robot output</h2>
+    <pre id="log"></pre>
+    <form id="form">
+      <input id="line" placeholder="Type a command, e.g. help, status, forward 2000" autocomplete="off">
+      <button>Send</button>
+    </form>
+  </section>
+</main>
+
+<script>
+// Same order as the behaviors list in robot_face.ino
+const BEHAVIORS = ["Hello", "Dance", "Explore", "Angry", "Scared", "Dizzy", "Sleepy", "No!"];
+
+const $ = id => document.getElementById(id);
+let port = null, writer = null, reader = null, readableClosed = null, writableClosed = null;
+
+//// Serial connection ////
+
+async function connect() {
+  if (!("serial" in navigator)) {
+    alert("This browser has no Web Serial. Please open this file in Chrome or Edge.");
+    return;
+  }
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+  } catch (e) {
+    log("Could not open the port: " + e.message + "\nIs the Arduino Serial Monitor still open?");
+    port = null;
+    return;
+  }
+  const encoder = new TextEncoderStream();
+  writableClosed = encoder.readable.pipeTo(port.writable);
+  writer = encoder.writable.getWriter();
+  const decoder = new TextDecoderStream();
+  readableClosed = port.readable.pipeTo(decoder.writable);
+  reader = decoder.readable.getReader();
+  setConnected(true);
+  send("status");
+  readLoop();
+}
+
+async function disconnect() {
+  release();
+  try {
+    if (reader) { await reader.cancel(); await readableClosed.catch(() => {}); }
+    if (writer) { await writer.close(); await writableClosed.catch(() => {}); }
+    if (port) await port.close();
+  } catch (e) { /* port already gone */ }
+  port = writer = reader = null;
+  setConnected(false);
+}
+
+async function readLoop() {
+  let buffer = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      let i;
+      while ((i = buffer.indexOf("\n")) >= 0) {
+        log(buffer.slice(0, i).replace(/\r$/, ""));
+        buffer = buffer.slice(i + 1);
+      }
+    }
+  } catch (e) {
+    log("Connection lost (cable unplugged or board reset)");
+  }
+  if (port) disconnect();
+}
+
+function setConnected(on) {
+  $("state").textContent = on ? "Connected" : "Not connected";
+  $("state").className = on ? "ok" : "";
+  $("connect").textContent = on ? "Disconnect" : "Connect";
+}
+
+function send(command) {
+  if (!writer) return;
+  writer.write(command + "\n").catch(() => {});
+}
+
+function log(text, cls) {
+  const box = $("log");
+  const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
+  const span = document.createElement("span");
+  if (cls) span.className = cls;
+  span.textContent = text + "\n";
+  box.appendChild(span);
+  while (box.childNodes.length > 500) box.removeChild(box.firstChild);
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+// A typed or clicked command, shown in the log
+function command(c) {
+  if (!writer) { log("Not connected, click Connect first"); return; }
+  log("> " + c, "sent");
+  send(c);
+}
+
+//// Hold-to-drive: repeat the drive command while held, the robot stops by itself if it stops arriving ////
+
+let held = null, timer = null;
+
+function hold(k) {
+  if (held === k || !writer) return;
+  clearInterval(timer);
+  held = k;
+  send(k);
+  timer = setInterval(() => send(k), 250);
+  document.querySelectorAll("[data-k]").forEach(b => b.classList.toggle("on", b.dataset.k === k));
+}
+
+function release() {
+  if (!held) return;
+  clearInterval(timer);
+  held = null;
+  send("x");
+  document.querySelectorAll("[data-k]").forEach(b => b.classList.remove("on"));
+}
+
+//// UI ////
+
+BEHAVIORS.forEach((name, i) => {
+  const b = document.createElement("button");
+  b.textContent = (i + 1) + "  " + name;
+  b.dataset.c = String(i + 1);
+  $("behaviors").appendChild(b);
+});
+
+document.querySelectorAll("[data-c]").forEach(b => b.addEventListener("click", () => command(b.dataset.c)));
+
+document.querySelectorAll("[data-k]").forEach(b => {
+  b.addEventListener("pointerdown", e => { e.preventDefault(); hold(b.dataset.k); });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(ev =>
+    b.addEventListener(ev, () => { if (held === b.dataset.k) release(); }));
+});
+
+$("stop").addEventListener("click", () => { release(); command("x"); });
+$("connect").addEventListener("click", () => port ? disconnect() : connect());
+$("speed").addEventListener("input", () => { $("speedVal").textContent = $("speed").value + "%"; });
+$("speed").addEventListener("change", () => command("speed " + $("speed").value));
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const c = $("line").value.trim();
+  if (c) command(c);
+  $("line").value = "";
+});
+
+const KEYS = { w: "w", arrowup: "w", s: "s", arrowdown: "s", a: "a", arrowleft: "a", d: "d", arrowright: "d" };
+
+addEventListener("keydown", e => {
+  if (e.target === $("line")) return; // typing a command
+  const k = e.key.toLowerCase();
+  if (KEYS[k]) { e.preventDefault(); if (!e.repeat) hold(KEYS[k]); }
+  else if (k === " " || k === "x") { e.preventDefault(); release(); command("x"); }
+  else if (/^[1-8]$/.test(k) || k === "z" || k === "m") command(k);
+});
+addEventListener("keyup", e => {
+  const k = KEYS[e.key.toLowerCase()];
+  if (k && held === k) release();
+});
+addEventListener("blur", release);
+
+if ("serial" in navigator) {
+  navigator.serial.addEventListener("disconnect", e => { if (e.target === port) disconnect(); });
+} else {
+  log("This browser has no Web Serial. Please open this file in Chrome or Edge.");
+}
+</script>
+</body>
+</html>
