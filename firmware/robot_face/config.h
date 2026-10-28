@@ -28,8 +28,8 @@
 #define INVERT_RIGHT false // set true if the right wheel spins backwards on "forward"
 
 // Motor power tuning, all PWM values are 0-255. Try changes live with the commands
-// "minpwm 160", "maxpwm 200", "kick 80", then put the values that work here.
-// The L298N loses about 2-3 V inside, so small motors need a high minimum.
+// "minpwm 100", "maxpwm 200", "kick 80", then put the values that work here.
+// The DRV8833 loses very little voltage, so a low minimum works (an L298N needs about 150).
 #define MOTOR_MIN_PWM 80   // lowest power that still turns the wheels (about 80 for DRV8833, 150 for L298N)
 #define MOTOR_MAX_PWM 255  // lower this if the motors get hot or run too fast at full speed
 #define MOTOR_KICK_MS 80   // full-power pulse that breaks a wheel loose when it starts, 0 = off

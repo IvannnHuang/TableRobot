@@ -1,10 +1,10 @@
-// Robot face + wheels for Seeed XIAO ESP32-C3
+  // Robot face + wheels for Seeed XIAO ESP32-C3
 //
 // Hardware
 //   OLED ELEGOO 0.96" SSD1306 128x64 (I2C): SDA -> D4 (GPIO6), SCL -> D5 (GPIO7)
-//   Motor board: IN1 -> A0 (GPIO2), IN2 -> A1 (GPIO3)   left motor
-//                IN3 -> A2 (GPIO4), IN4 -> A3 (GPIO5)   right motor
-//                motor board GND must also connect to the XIAO GND
+//   DRV8833:     IN1 -> A0 (GPIO2), IN2 -> A1 (GPIO3)   left motor  (OUT1/OUT2)
+//                IN3 -> A2 (GPIO4), IN4 -> A3 (GPIO5)   right motor (OUT3/OUT4)
+//                1 kOhm on each IN wire, EEP -> 3V3, GND shared with the XIAO GND
 //
 // Arduino IDE: Board "XIAO_ESP32C3", USB CDC On Boot "Enabled",
 //              Partition Scheme "Huge APP (3MB No OTA/1MB SPIFFS)" (the default only just fits)
@@ -501,7 +501,7 @@ const char HELP_TEXT[] =
   "  auto on / auto off / m random behaviors by itself\n"
   "Motors:\n"
   "  test                   each wheel forward and back at full power\n"
-  "  minpwm 150             lowest motor power 0-255 (raise if wheels hum but don't turn)\n"
+  "  minpwm 80              lowest motor power 0-255 (raise if wheels hum but don't turn)\n"
   "  maxpwm 255             highest motor power 0-255\n"
   "  kick 80                full-power start pulse in ms, 0 = off\n"
   "Info:\n"

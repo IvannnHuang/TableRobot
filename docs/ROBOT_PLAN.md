@@ -64,7 +64,7 @@ TableRobot/
 | Display | ELEGOO 0.96" SSD1306 128×64 I2C, address 0x3C | Two-colour: top 16 rows yellow, bottom 48 rows blue (fixed by the panel). Monochrome pixels |
 | Motor driver | ~~L298N~~ → **DRV8833** | The L298N loses 2–3 V, so the motors only hummed. The DRV8833 works from a 3.7 V battery and has overcurrent protection |
 | Motors | 2× N20 (1218GE) gear motor, 16 RPM listing (3 V/6 V versions mixed) | ⚠️ The tested motor is **mechanically jammed**: 20 Ω coil, draws the full stall current (≈0.3 A at 6 V), doesn't turn. Replace with **N20 6 V, 50–100 RPM** |
-| Battery | ~~ER14250~~ → **1S LiPo 3.7 V, 402540 (≈350 mAh), 2C+, with protection** | Space available: 26 × 50 × 5 mm. ER14250 is **not rechargeable** and too weak, so don't use it |
+| Battery | ~~ER14250~~ → ~~402540 (≈350 mAh)~~ → **EEMB 603449, 3.7 V 1100 mAh, JST-PH 2.0, with protection** (one per robot) | 34 × 49 × 6 mm: bigger than the original 26 × 50 × 5 mm space, so check the fit. ER14250 is **not rechargeable** and too weak, so don't use it. Diode: SS34 (3 A) preferred over SS14 (1 A) for motor stall current |
 
 ### 2.2 Wiring (v1 with DRV8833)
 | XIAO pin | GPIO | Connects to |
@@ -86,13 +86,17 @@ DRV8833 pins:
 
 **Power on battery:**
 ```
-LiPo (through UMLIFE charger OUT+/OUT−)
-  OUT+ ── switch ── Schottky diode (SS14) ──┬── XIAO 5V pin
-                                           └── DRV8833 VCC  (+ 220–470 µF capacitor)
-  OUT− ────────────────────────────────────┴── XIAO GND ── DRV8833 GND
+EEMB LiPo (JST-PH) ── UMLIFE charger B+/B−
+  OUT+ ── switch ──┬── XIAO 5V pin
+                   ├── DRV8833 VCC
+                   └── 470 µF capacitor + (− to GND), next to the DRV8833
+  OUT− ────────────┴── XIAO GND ── DRV8833 GND ── OLED GND
 ```
-- The diode stops USB from back-feeding the battery when the cable is plugged in.
+- **No diode** (chosen on purpose). Rule: **switch OFF whenever the XIAO's USB-C is plugged in.** Otherwise the laptop's 5 V pushes straight into the LiPo through the charger's OUT+.
+- Charge through the **charger's** USB port, never through the XIAO's. Charging works with the switch on or off.
+- **USB-only testing before the charger is connected:** the XIAO 5V pin feeds the rail, so the DRV8833 VCC gets about 5 V and the motors run without a battery.
 - **Bench test:** power the DRV8833 VCC from 6 V (never 12 V, the limit is 10.8 V). Keep the XIAO on USB and share GND.
+- Check the battery's polarity before plugging it into the charger: JST wire colours are not standard.
 
 ### 2.3 Firmware (folder `firmware/robot_face/`)
 | File | Purpose |
