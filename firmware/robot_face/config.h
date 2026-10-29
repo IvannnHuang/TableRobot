@@ -34,6 +34,8 @@
 #define MOTOR_MAX_PWM 255  // lower this if the motors get hot or run too fast at full speed
 #define MOTOR_KICK_MS 80   // full-power pulse that breaks a wheel loose when it starts, 0 = off
 #define MOTOR_PWM_HZ 500   // PWM frequency, low values give small motors more push at low speed
+#define MOTOR_SLOW_DECAY true // true = motor brakes between PWM pulses, so the speed slider really changes
+                              // the speed (DRV8833). false = coasts between pulses (old behavior)
 
 
 //*********************************************************************************************
@@ -54,6 +56,23 @@
 #define ROBOT_AP_ENABLED true
 #define AP_SSID "RoboFace"
 #define AP_PASS "robot1234" // at least 8 characters
+
+// After start-up the WiFi address stays on the OLED until a phone or laptop opens the web page,
+// but at most this long (a still picture for too long can burn into the OLED)
+#define WIFI_INFO_MAX_MIN 10
+// The phone counts as gone (and the WiFi address comes back) when it leaves the robot's WiFi,
+// or when the open page sends nothing for this long (it asks for the status every 2 s)
+#define WEB_LOST_SEC 10
+
+// Updates over WiFi: Arduino IDE shows the robot under Tools > Port as "roboface at 192.168...".
+// Needs Partition Scheme "Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)", flashed once over USB.
+// Password: OTA_PASS in secrets.h, or AP_PASS if that isn't set.
+#define OTA_ENABLED true
+#ifdef OTA_PASS
+#define OTA_PASSWORD OTA_PASS
+#else
+#define OTA_PASSWORD AP_PASS
+#endif
 
 
 //*********************************************************************************************
@@ -86,8 +105,10 @@
 
 #define SLEEP_AFTER_MIN 5   // fall asleep (clock screen) after this many minutes without commands
 #define PIXEL_SHIFT_SEC 60  // move the clock screen a few pixels this often, so no pixel stays lit
-#define NIGHT_OFF_START 23  // while asleep, turn the screen fully off from this hour...
-#define NIGHT_OFF_END 7     // ...until this hour (set both the same to never turn it off)
+#define NIGHT_OFF_START 23  // while asleep, show only a small moving clock from this hour...
+#define NIGHT_OFF_END 7     // ...until this hour (set both the same for the full clock all night)
+#define NIGHT_SMALL_CLOCK true // false = screen fully off at night instead of the small clock
+#define SLEEP_CONTRAST 24   // brightness of the sleep screen, 0-255 (0 is too dark on some panels)
 
 
 //*********************************************************************************************
@@ -98,5 +119,40 @@
 #define MANUAL_SPEED 70           // default manual driving speed in percent, change live with "speed"
 #define MANUAL_TIMEOUT_MS 700     // one drive command drives this long, controllers repeat it while a
                                   // key is held, so the robot stops by itself if the connection drops
+
+
+//*********************************************************************************************
+//  PERSONALITY (used while the mood is "auto", the default; "mood happy" etc. turn it off)
+//*********************************************************************************************
+
+#define MORNING_START 7      // happy eyes from this hour...
+#define MORNING_END 10       // ...until this hour
+#define NIGHT_TIRED_START 22 // tired eyes from this hour until MORNING_START
+#define HOT_TEMP (WEATHER_FAHRENHEIT ? 86 : 30)  // sweats when it's this hot outside or hotter
+#define COLD_TEMP (WEATHER_FAHRENHEIT ? 32 : 0)  // shivers now and then when it's this cold or colder
+#define BORED_AFTER_MIN 2    // asks for attention after this many minutes alone (0 = never)
+#define BORED_WIGGLE true    // false = only the eyes ask for attention, the wheels stay still
+
+
+//*********************************************************************************************
+//  NOTES, TIMERS AND RECORDING
+//*********************************************************************************************
+
+#define NOTE_MAX_LEN 80          // longest message, the OLED shows about 60 characters at once
+#define REMINDER_SHOW_MIN 5      // a reminder disappears by itself after this long
+#define ALARM_RING_MIN 3         // the alarm dances on and off this long unless it's stopped
+#define FOCUS_BREAK_MIN 5        // break after a focus timer
+#define RECORD_MAX_SEC 60        // longest recorded dance
+
+
+//*********************************************************************************************
+//  POWER SAVING
+//*********************************************************************************************
+
+#define CPU_MHZ 160              // 160 = full speed. 80 saves a few mA, but drawing and web replies get slower
+// Turn the robot's own WiFi off while the home WiFi is connected and no phone is on it.
+// It comes back by itself when the home WiFi is lost, or with the "ap on" command.
+#define AP_OFF_WHEN_HOME true
+#define AP_OFF_AFTER_MIN 3       // ...after this many minutes without a phone on it
 
 #endif

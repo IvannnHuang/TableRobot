@@ -64,7 +64,7 @@ TableRobot/
 | Display | ELEGOO 0.96" SSD1306 128×64 I2C, address 0x3C | Two-colour: top 16 rows yellow, bottom 48 rows blue (fixed by the panel). Monochrome pixels |
 | Motor driver | ~~L298N~~ → **DRV8833** | The L298N loses 2–3 V, so the motors only hummed. The DRV8833 works from a 3.7 V battery and has overcurrent protection |
 | Motors | 2× N20 (1218GE) gear motor, 16 RPM listing (3 V/6 V versions mixed) | ⚠️ The tested motor is **mechanically jammed**: 20 Ω coil, draws the full stall current (≈0.3 A at 6 V), doesn't turn. Replace with **N20 6 V, 50–100 RPM** |
-| Battery | ~~ER14250~~ → ~~402540 (≈350 mAh)~~ → **EEMB 603449, 3.7 V 1100 mAh, JST-PH 2.0, with protection** (one per robot) | 34 × 49 × 6 mm: bigger than the original 26 × 50 × 5 mm space, so check the fit. ER14250 is **not rechargeable** and too weak, so don't use it. Diode: SS34 (3 A) preferred over SS14 (1 A) for motor stall current |
+| Battery | ~~ER14250~~ → **v1: EEMB 402535, 3.7 V 320 mAh (300 min), 1.25 mm 2-pin connector, with protection**. v2: EEMB 603449, 1100 mAh (1000 min), 34.5 × 51 × 6.3 mm, JST-PH 2.0 (PHR-02) | 402535 = 25.5 × 36 × 4.3 mm, fits the 26 × 50 × 5 mm space. Rated about 1C (≈320 mA continuous): keep the 470 µF cap, lower `kick`/`maxpwm` if it browns out. Estimated runtime about 2 h with WiFi on. ER14250 is **not rechargeable** and too weak, so don't use it |
 
 ### 2.2 Wiring (v1 with DRV8833)
 | XIAO pin | GPIO | Connects to |
@@ -86,7 +86,7 @@ DRV8833 pins:
 
 **Power on battery:**
 ```
-EEMB LiPo (JST-PH) ── UMLIFE charger B+/B−
+EEMB LiPo (1.25 mm plug) ── UMLIFE charger B+/B−
   OUT+ ── switch ──┬── XIAO 5V pin
                    ├── DRV8833 VCC
                    └── 470 µF capacitor + (− to GND), next to the DRV8833
@@ -94,6 +94,9 @@ EEMB LiPo (JST-PH) ── UMLIFE charger B+/B−
 ```
 - **No diode** (chosen on purpose). Rule: **switch OFF whenever the XIAO's USB-C is plugged in.** Otherwise the laptop's 5 V pushes straight into the LiPo through the charger's OUT+.
 - Charge through the **charger's** USB port, never through the XIAO's. Charging works with the switch on or off.
+- The UMLIFE board charges at **1 A**: fine for the 1100 mAh cell (0.9C), **too fast for the 320 mAh cell (≈3C)**. For the 320 mAh cell, lower the charge current (PROG resistor ≈4–5 kΩ on a TP4056-type chip, about 250–300 mA) or use a slower charger.
+- Running while charging works, but the robot's ~100 mA load can stop the charger from ever seeing "full", so it holds the cell at 4.2 V. Don't leave it running on the charger all the time; switch OFF when charging a flat battery. Keep the charger board away from the cell, because it gets hot at 1 A.
+- **Running without a battery:** power it through the **XIAO's** USB-C with the switch OFF, not through the charger board. A TP4056-type charger with no cell attached is not designed as a power supply: depending on the chip and the load, its output may cycle on and off and reset the XIAO. It's harmless to try. For one USB-C port that both charges and powers the robot, add a load-sharing circuit (P-MOSFET + Schottky diode) between the charger's 5 V input and the rail.
 - **USB-only testing before the charger is connected:** the XIAO 5V pin feeds the rail, so the DRV8833 VCC gets about 5 V and the motors run without a battery.
 - **Bench test:** power the DRV8833 VCC from 6 V (never 12 V, the limit is 10.8 V). Keep the XIAO on USB and share GND.
 - Check the battery's polarity before plugging it into the charger: JST wire colours are not standard.
@@ -118,19 +121,37 @@ EEMB LiPo (JST-PH) ── UMLIFE charger B+/B−
 
 Without commands for `SLEEP_AFTER_MIN` minutes the robot falls asleep; any command wakes it.
 
-**Behaviours:** Hello, Dance, Explore, Angry, Scared, Dizzy, Sleepy, No!, plus Wake up and Fall asleep. Each step sets wheel speeds, mood, where the eyes look, and effects: blink, laugh, confused, sweat, curious, shiver, eyes closed.
+**Behaviours:** Hello, Dance, Explore, Angry, Scared, Dizzy, Sleepy, No!, and 9 = My dance (recorded from the phone), plus Wake up and Fall asleep. Each step sets wheel speeds, mood, where the eyes look, and effects: blink, laugh, confused, sweat, curious, shiver, eyes closed.
+
+**Personality** (with `mood auto`, the default):
+- happy eyes 7–10, tired eyes from 22:00
+- sweats when it's hot outside, shivers now and then when it's cold (from the weather)
+- after 2 minutes alone it looks up, wiggles and sighs to ask for attention; yawns at night
+
+**Notes and timers:**
+- **Messages:** text from the phone shows on the OLED (in turns with the eyes) until "seen"; `<3` is a heart. Sleeping, it shows an envelope on the clock
+- **Focus timer:** stays quiet, shows the time left now and then, dances when it's over, then a 5 min break
+- **Alarm:** every day; wakes up, dances every 20 s and shows the time for 3 minutes or until stopped
+- **Reminders:** up to 4 repeating ones (e.g. water every 60 min), skipped at night
+- Alarm, reminders and My dance survive a restart (saved in flash with `Preferences`)
+
+**Power saving:** CPU at 80 MHz; the robot WiFi switches off 3 min after the home WiFi connects if no phone is on it (back on when the home WiFi is lost, or `ap on`); the WiFi radio naps while no page is open; the CPU rests while asleep.
+
+**Lag fixes:** home WiFi attempts pause while a phone is on the robot WiFi (each attempt scans all channels), and the weather download waits while someone is driving (the C3 has one core). `status` shows the slowest loop; the phone page shows the round-trip time.
+
+**Updates over WiFi:** after flashing once over USB with the OTA partition (2.5), Arduino IDE lists the robot under Tools > Port as `roboface`. The password is `OTA_PASS` in `secrets.h`, or the robot WiFi password.
 
 **Burn-in protection on the sleep screen:**
-- lowest brightness
+- dimmed (`SLEEP_CONTRAST`)
 - the layout moves a few pixels every 60 s
 - blinking colon
-- screen off from 23:00 to 07:00
-- the eyes keep moving while awake
+- 23:00 to 07:00: only a small clock, in a new spot every minute (or fully off with `NIGHT_SMALL_CLOCK false`)
+- the eyes keep moving while awake; message and WiFi cards shift a few pixels too
 
 ### 2.4 Ways to control it
 | Method | How |
 |---|---|
-| Same WiFi | `http://roboface.local` or the IP shown on the OLED |
+| Same WiFi | `http://roboface.local` or the IP shown on the OLED. Phone remote for holding the phone upright, with three tabs at the bottom: **Drive** (joystick, speed, stop, record a dance), **Play** (behaviours, mood, sleep, wander) and **Notes** (message, focus timer, alarm, reminders). Add it to the home screen to open it fullscreen like an app. After start-up the address stays on the OLED until the page is opened (at most `WIFI_INFO_MAX_MIN`) |
 | Robot's own WiFi | Join `RoboFace` (password `robot1234`), open `http://192.168.4.1` |
 | USB, laptop | `tools/laptop_control/serial_control.html` in Chrome/Edge: Connect, then WASD |
 | USB, Serial Monitor | 115200 baud, line ending "New Line", type `help` |
@@ -139,15 +160,23 @@ Without commands for `SLEEP_AFTER_MIN` minutes the robot falls asleep; any comma
 - **Driving:**
   - `w / a / s / d`
   - `forward 2000` (also `back`, `left`, `right`, time in ms)
+  - `joy 30 80`: joystick, turn and forward from -100 to 100, mixed into curves (sent by the phone page)
   - `x` or `stop`
   - `speed 60`
 - **Behaviours and mood:**
-  - `1–8` or `dance`, `hello`, …
-  - `mood happy` (also `normal`, `angry`, `tired`)
+  - `1–8` or `dance`, `hello`, …; `9` = My dance
+  - `mood auto` (default, follows time and weather; also `normal`, `happy`, `angry`, `tired`)
   - `sleep`, `wake`, `z`
   - `auto on`, `auto off`, `m`
+- **Notes and timers:**
+  - `msg Miss you <3`, `seen`
+  - `focus 25`, `focus stop`
+  - `alarm 7:30` (also `7:30pm`, `19:30`), `alarm off`, `alarm stop`
+  - `remind 60 Drink water`, `remind list`, `remind off Drink water`
+- **My dance:** `rec`, `rec stop`, `rec play` (or `9`), `rec delete`
 - **Motor tuning:** `test`, `minpwm 80`, `maxpwm 255`, `kick 80`
-- **Information:** `status`, `wifi` (scans 2.4 GHz networks), `help`
+- **Information:** `status`, `wifi` (scans 2.4 GHz networks), `settime`, `help`
+- **Power:** `ap on` (robot WiFi stays on), `ap off`, `ap auto`
 
 ### 2.5 Arduino IDE setup and upload (v1)
 1. **Board package:** esp32 by Espressif **3.3.3**. Decline the IDE's update prompt for now; the update is a huge download, and the sketch is tested with 3.3.3.
@@ -161,9 +190,10 @@ Without commands for `SLEEP_AFTER_MIN` minutes the robot falls asleep; any comma
    | Board | **XIAO_ESP32C3**. The IDE auto-selects "ESP32 Family Device", which fails with just `exit status 1` |
    | Port | the XIAO's COM port (COM3 and COM4 are Bluetooth) |
    | USB CDC On Boot | **Enabled** |
-   | Partition Scheme | **Huge APP (3MB No OTA/1MB SPIFFS)** |
+   | Partition Scheme | **Minimal SPIFFS (1.9MB APP with OTA/190KB SPIFFS)** (needed for updates over WiFi) |
 
 6. **Upload.** If it fails: hold BOOT, tap RESET, release BOOT, upload again, then press RESET.
+7. **Later updates over WiFi:** with the robot on the same network as the laptop, pick Tools > Port > `roboface at 192.168…`, then Upload. The password is `OTA_PASS` from `secrets.h`, or `AP_PASS` if that isn't set. Lift the wheels or switch the motors off first: the robot keeps running until the update starts.
 
 ### 2.6 Planned v1 audio (optional, if staying on the C3)
 | XIAO pin | INMP441 mic | MAX98357 amp |
@@ -180,7 +210,9 @@ Without commands for `SLEEP_AFTER_MIN` minutes the robot falls asleep; any comma
 ### 2.7 v1 status and to-do
 - [x] Animated eyes, behaviours, sleep clock, weather, automatic location (Ithaca, NY)
 - [x] Web, WiFi, serial and USB laptop control
-- [x] Firmware compiles (39% of flash with the Huge APP partition)
+- [x] Firmware compiles (66% of the 1.9 MB app space with the Minimal SPIFFS OTA partition)
+- [x] Software features: messages, focus timer, alarm, reminders, personality, dance recording, power saving, updates over WiFi
+- [ ] Test the new features on the robot (first flash with the new partition over USB)
 - [x] First CAD version of the frame (section 2.8)
 - [ ] Router 2.4 GHz band: the home router was only broadcasting on 5 GHz. Check with the `wifi` command
 - [ ] Print the frame and test-fit the motors, OLED, XIAO, DRV8833 and battery
@@ -318,6 +350,8 @@ Each phase ends with something that works and that you can show off. Don't start
 - [ ] New N20 motors, DRV8833, LiPo power (section 2.7)
 - [ ] Tune `MOTOR_MIN_PWM` / `MOTOR_MAX_PWM` with `test`, `minpwm` and `maxpwm`
 - [ ] Router on 2.4 GHz → clock, weather and `roboface.local` work
+- [x] Phone remote: joystick page served by the robot, installable on the home screen
+- [ ] Test the joystick on the real robot (steering feel, latency, stop on release)
 
 **Done when:** it drives all 8 behaviours on battery for at least 30 minutes, controlled from the phone.
 
@@ -414,6 +448,8 @@ Each phase ends with something that works and that you can show off. Don't start
 ## 6. Safety rules and lessons learned
 | Lesson | Rule from now on |
 |---|---|
+| The speed slider barely changed the wheel speed | PWM on one input with the other low (fast decay) lets a lightly loaded motor coast up to near full speed. Use slow decay (`MOTOR_SLOW_DECAY`): one input high, inverted PWM on the other |
+| The sleep clock showed no time on the robot's own WiFi | No internet means no NTP. The phone page and the USB page now send the time with `settime` when they connect, and the phone page sends it again whenever `/status` reports `"clock":false` (robot restarted while the page stayed open). A WiFi screen waiting for a phone no longer covers the clock |
 | A motor overheated while idle: the Seeed demo left the motor pins floating | Flash the robot firmware **before** connecting motor power. Unplug motor power while uploading |
 | A motor seized: stalled for a long time, now jammed | Never leave motors powered while stalled. Test each new motor alone at its rated voltage first |
 | The XIAO ESP32-C3 died during the bench test with the L298N and a 6/12 V supply | Never use the 12 V setting on N20 motors or the DRV8833. Check the wiring before power-on. Use 1 kΩ resistors on the IN wires. Test the driver without the microcontroller connected |

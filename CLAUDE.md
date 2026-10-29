@@ -12,7 +12,8 @@ Two small two-wheeled desk companion robots (one for the owner, one for their pa
 - `FluxGarage_RoboEyes.h` is a third-party GPLv3 library (transcribed). Don't restyle it; patch minimally.
 - Include RoboEyes **last**: its short macros (`N`, `E`, `S`, `W`, `ON`, `OFF`, `DEFAULT`) clash with other headers. `#undef DEFAULT` comes before it because the ESP32 core defines `DEFAULT` too.
 - Serial, web and USB control all go through `runCommand()`. Add new commands there, and update `HELP_TEXT` and `tools/laptop_control/serial_control.html` (the behaviour list is duplicated there).
-- Keep `loop()` non-blocking: no long `delay()`s. Network calls run in the background task in `weather.h`.
+- Keep `loop()` non-blocking: no long `delay()`s. Network calls run in the background task in `weather.h`. The C3 has one core, so that task waits (`weatherHold`) while someone is driving.
+- Alarm, reminders and the recorded dance are saved with `Preferences` (namespace `robot`).
 - Code style: match the existing files. Section banners `//****`, short comments, descriptive names.
 
 ## Build (verify every change compiles)
@@ -20,9 +21,11 @@ ESP32 core **3.3.3** is installed; don't upgrade without testing. The arduino-cl
 ```
 "/c/Program Files/Arduino IDE/resources/app/lib/backend/resources/arduino-cli.exe" \
   --config-file ~/.arduinoIDE/arduino-cli.yaml compile \
-  --fqbn esp32:esp32:XIAO_ESP32C3:CDCOnBoot=cdc,PartitionScheme=huge_app \
+  --fqbn esp32:esp32:XIAO_ESP32C3:CDCOnBoot=cdc,PartitionScheme=min_spiffs \
   --build-path <scratch dir> firmware/robot_face
 ```
+- Partition `min_spiffs` (1.9 MB app with OTA) is needed for updates over WiFi (`ArduinoOTA`, port `roboface`). The sketch must stay under 1.9 MB.
+- Raw-string web pages (`R"HTML(...)HTML"`): avoid a bare `'` in the HTML text (use `&#39;`). An odd number of apostrophes confuses the Arduino prototype generator, which then reads the JavaScript `function` lines as C++.
 - The IDE auto-selects "ESP32 Family Device" when the board is plugged in, and that fails with just `exit status 1`. The board must be **XIAO_ESP32C3**.
 - The owner uploads to hardware themselves. Don't send motor commands to a connected board without asking (the wheels may not be lifted).
 
@@ -32,4 +35,4 @@ ESP32 core **3.3.3** is installed; don't upgrade without testing. The arduino-cl
 - No non-rechargeable lithium cells (ER14250) and no charger on primary cells. Use a 1S LiPo with protection, ≥2C.
 - A battery on the XIAO 5V pin needs a diode or switch so USB can't back-feed it.
 - The ESP32 only does 2.4 GHz WiFi.
-- OLED/AMOLED burn-in: keep the eyes moving, dim the sleep screen, screen off at night.
+- OLED/AMOLED burn-in: keep the eyes moving, dim the sleep screen, only a small moving clock at night. Anything that stays on screen (cards, WiFi info) shifts a few pixels every `PIXEL_SHIFT_SEC`.

@@ -161,9 +161,14 @@ bool fetchWeather() {
   return ok;
 }
 
+// Set by the main loop while a phone is using the web page. The C3 has a single core, and the
+// HTTPS weather request keeps it busy for a few seconds, which makes driving laggy, so it waits.
+volatile bool weatherHold = false;
+
 void weatherTask(void *) {
   bool locationFound = false;
   for (;;) {
+    while (weatherHold) vTaskDelay(pdMS_TO_TICKS(1000));
     if (WiFi.status() == WL_CONNECTED) {
       if (AUTO_LOCATION && !locationFound) locationFound = lookupLocation(); // retried until it works
       if (fetchWeather()) {

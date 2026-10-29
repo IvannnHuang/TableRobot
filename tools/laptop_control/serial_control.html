@@ -92,7 +92,7 @@
 
     <div class="keys">
       Keyboard: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to drive (hold),
-      <kbd>Space</kbd> stop, <kbd>1</kbd>–<kbd>8</kbd> behaviors, <kbd>Z</kbd> sleep/wake, <kbd>M</kbd> auto mode
+      <kbd>Space</kbd> stop, <kbd>1</kbd>–<kbd>9</kbd> behaviors, <kbd>Z</kbd> sleep/wake, <kbd>M</kbd> auto mode
     </div>
   </section>
 
@@ -108,7 +108,7 @@
 
 <script>
 // Same order as the behaviors list in robot_face.ino
-const BEHAVIORS = ["Hello", "Dance", "Explore", "Angry", "Scared", "Dizzy", "Sleepy", "No!"];
+const BEHAVIORS = ["Hello", "Dance", "Explore", "Angry", "Scared", "Dizzy", "Sleepy", "No!", "My dance"]; // 9 = recorded with "rec"
 
 const $ = id => document.getElementById(id);
 let port = null, writer = null, reader = null, readableClosed = null, writableClosed = null;
@@ -135,6 +135,7 @@ async function connect() {
   readableClosed = port.readable.pipeTo(decoder.writable);
   reader = decoder.readable.getReader();
   setConnected(true);
+  send("settime " + Math.floor(Date.now() / 1000)); // the robot has no clock without internet
   send("status");
   readLoop();
 }
@@ -255,7 +256,7 @@ addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (KEYS[k]) { e.preventDefault(); if (!e.repeat) hold(KEYS[k]); }
   else if (k === " " || k === "x") { e.preventDefault(); release(); command("x"); }
-  else if (/^[1-8]$/.test(k) || k === "z" || k === "m") command(k);
+  else if (/^[1-9]$/.test(k) || k === "z" || k === "m") command(k);
 });
 addEventListener("keyup", e => {
   const k = KEYS[e.key.toLowerCase()];

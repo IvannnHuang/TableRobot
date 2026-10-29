@@ -16,4 +16,8 @@
 #define BACKUP_WIFI_SSID ""
 #define BACKUP_WIFI_PASS ""
 
+// Password Arduino IDE asks for when uploading over WiFi. Without this line the robot WiFi
+// password (AP_PASS in config.h) is used.
+// #define OTA_PASS "pick-a-password"
+
 #endif

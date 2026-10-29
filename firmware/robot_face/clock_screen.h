@@ -9,10 +9,11 @@
 // Sleep screen: date, big clock and weather.
 //
 // OLED burn-in protection (OLED pixels wear out the longer and brighter they are lit):
-//  - the screen is dimmed to the lowest brightness while asleep
+//  - the screen is dimmed (SLEEP_CONTRAST) while asleep
 //  - the whole layout moves a few pixels to a random spot every PIXEL_SHIFT_SEC
 //  - the clock colon blinks, so the middle of the screen isn't lit constantly
-//  - the screen is switched fully off during night hours (NIGHT_OFF_START..NIGHT_OFF_END)
+//  - during night hours (NIGHT_OFF_START..NIGHT_OFF_END) only a small clock is shown, in a new
+//    spot every PIXEL_SHIFT_SEC (or the screen is fully off with NIGHT_SMALL_CLOCK false)
 //
 // Layout fits the two-color ELEGOO modules too: the date stays inside the top 16 rows (yellow),
 // the clock and weather in the bottom 48 rows (blue).
@@ -20,11 +21,15 @@ class ClockScreen
 {
 public:
 
+  bool noteWaiting = false; // small envelope in the top right corner: a message wasn't seen yet
+  bool alarmSet = false;    // small dot in the top left corner: an alarm is set
+
   ClockScreen(Adafruit_SSD1306 &display) : display(display) {}
 
   void enter() {
     display.ssd1306_command(SSD1306_DISPLAYON);
-    display.dim(true);
+    display.ssd1306_command(SSD1306_SETCONTRAST); // dim, but still readable
+    display.ssd1306_command(SLEEP_CONTRAST);
     panelOff = false;
     lastDraw = 0;
     newShift();
@@ -36,6 +41,20 @@ public:
     panelOff = false;
   }
 
+  // Local time, false while the clock was never set (no internet and no phone page yet).
+  // getLocalTime(&t, 0) can give up before its first try, so read the clock directly.
+  static bool readTime(struct tm &t) {
+    time_t now = time(nullptr);
+    localtime_r(&now, &t);
+    return t.tm_year > 2020 - 1900;
+  }
+
+  static bool isNight(int hour) {
+    if (NIGHT_OFF_START == NIGHT_OFF_END) return false;
+    if (NIGHT_OFF_START > NIGHT_OFF_END) return hour >= NIGHT_OFF_START || hour < NIGHT_OFF_END;
+    return hour >= NIGHT_OFF_START && hour < NIGHT_OFF_END;
+  }
+
   // Call every loop while asleep
   void update() {
     unsigned long now = millis();
@@ -44,22 +63,35 @@ public:
     if (now - lastShift >= PIXEL_SHIFT_SEC * 1000UL) newShift();
 
     struct tm t;
-    bool haveTime = getLocalTime(&t, 0);
+    bool haveTime = readTime(t);
 
-    // Screen fully off at night
+    // At night only a small clock that moves around, or the screen fully off
     bool night = haveTime && isNight(t.tm_hour);
-    if (night != panelOff) {
-      display.ssd1306_command(night ? SSD1306_DISPLAYOFF : SSD1306_DISPLAYON);
-      panelOff = night;
+    bool off = night && !NIGHT_SMALL_CLOCK;
+    if (off != panelOff) {
+      display.ssd1306_command(off ? SSD1306_DISPLAYOFF : SSD1306_DISPLAYON);
+      panelOff = off;
     }
-    if (night) return;
+    if (off) return;
 
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
     display.setTextWrap(false);
+    if (night) {
+      drawNightClock(t);
+      display.display();
+      return;
+    }
     drawDate(t, haveTime);
     drawTime(t, haveTime);
     drawWeather();
+    if (noteWaiting) { // envelope
+      int x = 117 + dx / 2, y = 4 + dy / 2;
+      display.drawRect(x, y, 10, 7, SSD1306_WHITE);
+      display.drawLine(x, y, x + 4, y + 3, SSD1306_WHITE);
+      display.drawLine(x + 9, y, x + 5, y + 3, SSD1306_WHITE);
+    }
+    if (alarmSet) display.fillCircle(3 + dx / 2, 7 + dy / 2, 1, SSD1306_WHITE);
     display.display();
   }
 
@@ -71,16 +103,25 @@ private:
   int dx = 0, dy = 0; // current pixel shift
   bool panelOff = false;
 
+  int nightX = 34, nightY = 24;       // where the small night clock is
+
   void newShift() {
     dx = random(-3, 4);
     dy = random(-2, 3);
+    nightX = random(0, SCREEN_WIDTH - 60);
+    nightY = random(0, SCREEN_HEIGHT - 16);
     lastShift = millis();
   }
 
-  static bool isNight(int hour) {
-    if (NIGHT_OFF_START == NIGHT_OFF_END) return false;
-    if (NIGHT_OFF_START > NIGHT_OFF_END) return hour >= NIGHT_OFF_START || hour < NIGHT_OFF_END;
-    return hour >= NIGHT_OFF_START && hour < NIGHT_OFF_END;
+  // Night: just the time, in a new spot every PIXEL_SHIFT_SEC, so few pixels are lit and none for long
+  void drawNightClock(struct tm &t) {
+    char buf[8];
+    int hour = CLOCK_24H ? t.tm_hour : (t.tm_hour % 12 == 0 ? 12 : t.tm_hour % 12);
+    snprintf(buf, sizeof(buf), CLOCK_24H ? "%02d:%02d" : "%d:%02d", hour, t.tm_min);
+    display.setTextSize(2);
+    display.setCursor(nightX, nightY);
+    display.print(buf);
+    if (noteWaiting) display.drawRect(nightX + textWidth(buf, 2) + 4, nightY + 5, 6, 5, SSD1306_WHITE);
   }
 
   // Width in pixels of text in the built-in font
