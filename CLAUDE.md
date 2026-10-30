@@ -6,6 +6,13 @@ Two small two-wheeled desk companion robots (one for the owner, one for their pa
 - v1 = Seeed **XIAO ESP32-C3** + ELEGOO 0.96" SSD1306 OLED (128×64, I2C 0x3C, yellow top 16 rows / blue bottom) + **DRV8833** + 2× N20 motors. The firmware is done; the hardware is being rebuilt (new motors, DRV8833, LiPo, replacement XIAO).
 - v2 target = **Waveshare ESP32-S3-Touch-AMOLED-1.43** (466×466 AMOLED, touch, QMI8658 IMU, RTC) + DRV8833 + INMP441 mic + MAX98357 amp. Camera features were dropped on purpose.
 - The roadmap phases (0–6) are in `docs/ROBOT_PLAN.md` section 5.
+- **Under evaluation (2026-10-30):** a walking **Microduck** biped (14 Dynamixel XL330 servos) on an ESP32-S3 instead of the Pi, with a touch screen + camera head instead of the duck head. Analysis only. Findings, servo prices, risks and pending decisions are in `docs/ROBOT_PLAN.md` **section 9**.
+  - The owner wants analysis before changes: don't change firmware, order parts or build for this until they decide (9.8).
+  - `Microduck-build-tutorial/` is a third-party GPL-3.0 clone with its own `.git`, untracked in this repo. Read it as reference, don't edit it, and don't `git add` it.
+  - Key facts:
+    - The policy is a 51→512→256→128→14 MLP at 50 Hz, and the neck/head joints are part of it, so a new head means retraining.
+    - The clone's training robot model was deleted (get it from upstream `pollen-robotics/microduck`).
+    - Hobby servos can't run the policy (no feedback). An S3 can run it (int8 weights); a C3 can't (no FPU).
 
 ## Firmware (`firmware/robot_face/`)
 - Arduino sketch. The folder name must match the `.ino`. Settings are in `config.h`; WiFi credentials are in the **git-ignored `secrets.h`** (template `secrets.example.h`). **Never commit secrets or print them in chat.**
