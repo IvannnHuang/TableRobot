@@ -1,31 +1,18 @@
 # TableRobot
 
-A small two-wheeled desk robot with an animated OLED face, built on the Seeed XIAO ESP32-C3. You can drive it and change its mood from a phone, a laptop or over USB, and it shows a clock with weather while it sleeps. Two robots, one for each of us, will later talk to each other over the internet.
+Small desk companion robots with animated faces, one for each of us. The repo holds one project per robot version:
 
-The full plan, wiring and roadmap are in **[docs/ROBOT_PLAN.md](docs/ROBOT_PLAN.md)**.
+| Version | Project | Folder | Status |
+|---|---|---|---|
+| v1 | **Wheelbot** (RoboFace): two-wheeled robot, XIAO ESP32-C3, 0.96" OLED face | [`wheelbot/`](wheelbot/) | Finished |
+| v2 | **Robot dog**: four legs + a turning neck, ESP32-S3 with a 1.43" round AMOLED touch face, IMU, mic and speaker; offline voice commands, web and remote control, two dogs that keep each other company over the internet, AI chat last | [`robotdog/`](robotdog/) | Planning, board bought |
+| v3 | **Microduck**: walking biped on an ESP32-S3 with a touch screen + camera head | [`microduck/`](microduck/) | Analysis only |
 
-## Contents
-| Folder | What's inside |
-|---|---|
-| `firmware/robot_face/` | Arduino firmware (ESP32-C3 + 0.96" OLED + DRV8833 motors) |
-| `tools/laptop_control/` | Laptop control page over USB (Chrome/Edge) |
-| `cad/` | 3D-printable frame: top shell, bottom plate, wheel connector |
-| `docs/` | Project plan |
+Each folder has its own README, plan (`docs/`) and notes for Claude Code (`CLAUDE.md`).
 
-## Quick start
-1. Install **Arduino IDE**, the **esp32 by Espressif 3.3.3** boards package and the **Adafruit SSD1306** library.
-2. Copy `firmware/robot_face/secrets.example.h` to `secrets.h` and enter your **2.4 GHz** WiFi details. `secrets.h` stays out of git.
-3. Open `firmware/robot_face/robot_face.ino`.
-4. Set these in the Tools menu:
-   - Board **XIAO_ESP32C3**
-   - USB CDC On Boot **Enabled**
-   - Partition Scheme **Huge APP**
-5. Upload.
-6. Open the Serial Monitor at 115200 baud, choose the "New Line" line ending, and type `help`.
-7. Control the robot from a browser at `http://roboface.local`.
-
-The wiring is in [docs/ROBOT_PLAN.md, section 2.2](docs/ROBOT_PLAN.md#22-wiring-v1-with-drv8833).
-
-## License
-- `firmware/robot_face/FluxGarage_RoboEyes.h` is © Dennis Hoelscher, under GPLv3.
-- Because the firmware includes it, the firmware as a whole is distributed under GPLv3 too.
+## Getting the code
+The robot dog firmware is a separate git repo ([IvannnHuang/tabledog](https://github.com/IvannnHuang/tabledog)), included here as a submodule in `robotdog/firmware/`. Clone with:
+```
+git clone --recurse-submodules <this repo>
+```
+or, in an existing clone, run `git submodule update --init`.

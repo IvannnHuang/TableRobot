@@ -15,3 +15,6 @@ desktop.ini
 
 # Personal Claude Code settings (CLAUDE.md is shared on purpose)
 .claude/settings.local.json
+
+# Third-party reference clones (own .git), see each project's CLAUDE.md
+reference/

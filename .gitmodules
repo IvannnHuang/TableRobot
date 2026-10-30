@@ -1,0 +1,3 @@
+[submodule "robotdog/firmware"]
+	path = robotdog/firmware
+	url = https://github.com/IvannnHuang/tabledog.git
